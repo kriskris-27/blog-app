@@ -4,13 +4,13 @@ import axios from 'axios';
 import React, { useEffect, useState } from 'react'
 import { toast } from 'react-toastify';
 
-const page = () => {
+const Page = () => {
 
-  const [emails,setEmails] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
 
-  const fetchEmails = async () => {
-    const response = await axios.get('/api/email');
-    setEmails(response.data.emails)
+  const fetchSubscriptions = async () => {
+    const response = await axios.get('/api/subscriptions');
+    setSubscriptions(response.data);
   }
 
   const deleteEmail = async (mongoId) =>{
@@ -21,7 +21,7 @@ const page = () => {
     })
     if (response.data.success) {
       toast.success(response.data.msg);
-      fetchEmails();
+      fetchSubscriptions();
     }
     else{
       toast.error("Error");
@@ -29,7 +29,7 @@ const page = () => {
   }
 
   useEffect(()=>{
-    fetchEmails();
+    fetchSubscriptions();
   },[])
 
   return (
@@ -51,7 +51,7 @@ const page = () => {
             </tr>
           </thead>
           <tbody>
-            {emails.map((item,index)=>{
+            {subscriptions.map((item,index)=>{
                 return <SubsTableItem key={index} mongoId={item._id} deleteEmail={deleteEmail} email={item.email} date={item.date}/>;
             })}
             
@@ -62,4 +62,4 @@ const page = () => {
   )
 }
 
-export default page
+export default Page

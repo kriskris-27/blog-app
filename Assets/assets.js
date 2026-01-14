@@ -25,10 +25,10 @@ import blog_icon from './blog_icon.png'
 import add_icon from './add_icon.png'
 import email_icon from './email_icon.png'
 import upload_area from './upload_area.png'
-import insta_icon from './insta.png'
+// import insta_icon from './insta.png'
 
 export const assets = {
-    insta_icon,
+    // insta_icon,
     facebook_icon,
     googleplus_icon,
     twitter_icon,
