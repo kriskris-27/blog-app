@@ -1,11 +1,15 @@
 import { ConnectDB } from '@/lib/config/db';
 import BlogModel from '@/lib/models/BlogModel';
+import { uploadImageToCloudinary, deleteImageFromCloudinary } from '@/lib/services/cloudinary';
 import { NextResponse } from "next/server";
-import { unlink, writeFile } from 'fs/promises';
+import { unlink } from 'fs/promises';
 
 const ensureDB = async () => {
   await ConnectDB();
 };
+
+const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp"];
+const maxFileSizeBytes = 5 * 1024 * 1024; // 5MB
 
 export async function GET(request) {
   try {
@@ -33,11 +37,19 @@ export async function POST(request) {
     await ensureDB();
 
     const formData = await request.formData();
-    const timestamp = Date.now();
 
     const image = formData.get('image');
     if (!image) {
       return NextResponse.json({ success: false, msg: "Image is required" }, { status: 400 });
+    }
+
+    if (!allowedMimeTypes.includes(image.type)) {
+      return NextResponse.json({ success: false, msg: "Unsupported image type" }, { status: 400 });
+    }
+
+    const imageByteData = await image.arrayBuffer();
+    if (imageByteData.byteLength > maxFileSizeBytes) {
+      return NextResponse.json({ success: false, msg: "Image must be 5MB or smaller" }, { status: 400 });
     }
 
     const requiredFields = ["title", "description", "category", "author", "authorImg"];
@@ -47,18 +59,18 @@ export async function POST(request) {
       }
     }
 
-    const imageByteData = await image.arrayBuffer();
     const buffer = Buffer.from(imageByteData);
-    const path = `./public/${timestamp}_${image.name}`;
-    await writeFile(path, buffer);
-    const imgUrl = `/${timestamp}_${image.name}`;
+    const uploadResult = await uploadImageToCloudinary(buffer, {
+      folder: process.env.CLOUDINARY_UPLOAD_FOLDER || "blog-app",
+    });
 
     const blogData = {
       title: formData.get('title'),
       description: formData.get('description'),
       category: formData.get('category'),
       author: formData.get('author'),
-      image: imgUrl,
+      image: uploadResult.secure_url,
+      imagePublicId: uploadResult.public_id,
       authorImg: formData.get('authorImg')
     };
 
@@ -86,8 +98,13 @@ export async function DELETE(request) {
       return NextResponse.json({ success: false, msg: "Blog not found" }, { status: 404 });
     }
 
-    const imagePath = `./public${blog.image}`;
-    await unlink(imagePath).catch(() => { /* file may already be removed */ });
+    if (blog.imagePublicId) {
+      await deleteImageFromCloudinary(blog.imagePublicId).catch(() => {});
+    } else if (blog.image) {
+      const imagePath = blog.image.startsWith("/") ? `./public${blog.image}` : `./public/${blog.image}`;
+      await unlink(imagePath).catch(() => { /* file may already be removed */ });
+    }
+
     await BlogModel.findByIdAndDelete(id);
     return NextResponse.json({ success: true, msg: "Blog Deleted" });
   } catch (error) {
